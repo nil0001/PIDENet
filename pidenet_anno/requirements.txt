@@ -1,0 +1,17 @@
+numpy
+scipy
+opencv-python
+trimesh
+open3d
+pyefd
+pyyaml
+matplotlib
+
+# 以下两个是trimesh的功能性依赖，容易被忽略但必需：
+# rtree: trimesh的射线-网格相交检测(annotation/projection.py核心依赖)默认后端需要它，
+#        缺失时会在运行 raycast_orthographic_projection 时报 ModuleNotFoundError
+rtree
+# manifold3d: trimesh的布尔运算(union/difference，本项目示例/测试中用于构造合成几何体)
+#             后端，正式处理LINEMOD真实单一CAD模型时通常不需要布尔运算，但若你的物体
+#             需要预处理(如合并多个子网格)，建议一并安装避免运行时报错
+manifold3d
