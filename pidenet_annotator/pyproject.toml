@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pidenet_annotator"
+version = "0.1.0"
+description = "Reproduction of PIDENet Section 3.2 offline grasp-pose annotation pipeline"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "trimesh>=4.0",
+    "PyYAML>=6.0",
+    "opencv-python>=4.7",
+    "scikit-image>=0.20",
+    "shapely>=2.0",
+    "pyefd>=1.6",
+    "matplotlib>=3.6",
+    "plotly>=5.14",
+]
+
+[project.optional-dependencies]
+fast = ["embreex>=2.17"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pidenet_annotator*"]

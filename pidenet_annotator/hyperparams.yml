@@ -1,0 +1,109 @@
+# PIDENet annotation-algorithm reproduction — hyperparameters (Phase 1 draft)
+# Values explicitly given in the paper are marked [paper]; everything else
+# is a documented choice/tuning made for this reproduction, per your
+# instruction to pick reasonable values / self-tune where unspecified.
+
+stable_pose:
+  top_k: 4                     # [paper] "top-4 most probable stable poses"
+  engine: "trimesh.poses.compute_stable_poses"
+  # [decision] literal per-facet solid-angle-from-COM was implemented and
+  # tested first; on these organically-shaped scans the convex hull
+  # fragments into ~1800 micro-facets and top-4 only covered ~20-30% of
+  # probability mass, far short of the paper's ">95%" claim. Switched to
+  # trimesh's quasi-static-tumbling stable-pose algorithm (COM rolled to
+  # equilibrium over the hull), which is the same underlying physical
+  # quantity and reproduces top-4 ~= 87-90% / top-6 > 95% on both objects.
+
+projection:
+  resolution: 600               # pixels per side of the top-down grid
+  pad_frac: 0.06                # padding around bbox, fraction of half-extent
+  top_frac: 0.30                # [paper] "upper 30% of bounding-box height"
+  # [decision] the elevation-threshold hole-carving only fires for a "low"
+  # region that is topologically ENCLOSED by foreground reaching the top
+  # band (i.e. does not touch the silhouette's true exterior). A literal
+  # global per-pixel threshold would also truncate ordinary solid,
+  # unevenly-tall objects (e.g. the ape's feet/arms). See projection.py
+  # module docstring for the full reasoning.
+
+efd:
+  order: 20                     # harmonic order for elliptic Fourier fit
+  num_points: 500               # resample density of reconstructed curve
+  # [decision] swept order in {8,15,25,40} on the real contours; 8 visibly
+  # under-fits genuine concave notches (the very feature the next stage
+  # needs), 40 starts to track pixel staircase noise. 20 is the sweet spot.
+
+outer_branch:
+  min_depth_frac: 0.012         # min convexity-defect depth, fraction of
+                                 # mask's bounding-box diagonal (pixels)
+  max_pairs_per_pose: 10
+
+approach_vector:
+  knn_k: 40                     # neighborhood size for local PCA
+
+scoring:
+  # [paper, Eq.4] geometric interlocking normalization constants
+  d0_outer_frac: 0.10           # x longest dimension of the mask (px)
+  d0_hole_frac: 0.05            # x longest dimension of the mask (px)
+  finger_pad_conform_mm: 20.0    # [decision, v2 -- see grasp2d.py
+                                 # hole_branch_pair docstring for why the
+                                 # first attempt (arc length within a
+                                 # fixed chord radius) was replaced]
+                                 # nominal compliant-fingertip-pad reach;
+                                 # d_hole = max(eps, this - wall_width).
+                                 # 20mm comfortably exceeds both handles'
+                                 # measured wall widths (~9-18mm) so it
+                                 # actually discriminates between them,
+                                 # while collapsing to ~0 for anything
+                                 # pad-scale or thicker (e.g. a body span).
+  mu: 0.7                       # [decision] initially tried 0.5 (typical
+                                 # rubber-pad default in grasp-planning
+                                 # literature); on inspection most of the
+                                 # rejections at mu=0.5 were borderline
+                                 # (contact angles 27-45 deg vs a 26.6 deg
+                                 # half-angle threshold) rather than wildly
+                                 # off, consistent with the approximation
+                                 # noise inherent to this pipeline (2D
+                                 # silhouette extraction -> 3D back-
+                                 # projection -> nearest-surface-point
+                                 # normal lookup each add a few degrees of
+                                 # slack vs. an idealized computation).
+                                 # mu=0.7 (~35 deg half-angle) is still a
+                                 # realistic rubber/silicone-pad friction
+                                 # coefficient and keeps genuinely poor
+                                 # alignments (>45-50 deg observed on some
+                                 # over-wide body spans) correctly rejected.
+  gripper:
+    # [decision] generic parallel-jaw gripper stroke. The paper's own
+    # real-robot section uses a Franka Hand (~80mm); our pot/kettle CAD
+    # model is considerably larger in absolute scale (284mm bbox diagonal,
+    # ape is 142mm) than the small Linemod-style props the Franka Hand
+    # was sized for, so an 80mm ceiling would make literally every
+    # outer-contour (body) candidate on the pot kinematically infeasible
+    # (Q forced to 0), leaving "body" with no representable grasp at all
+    # -- not what "handle > top-handle > body" implies (body should still
+    # be a real, lower-scoring option). 110mm keeps the pot's true
+    # mid-body grasps (its widest "belly", ~140-165mm) correctly
+    # infeasible, while letting its genuine neck-width candidates
+    # (~75-90mm) and both handles remain candidates, and is still a
+    # realistic stroke for an industrial parallel gripper (e.g. Robotiq
+    # 2F-140 class).
+    w_min_mm: 2.0
+    w_max_mm: 110.0
+    gamma: 0.40                 # w* = gamma * w_max (~44mm target)
+    sigma_w_mm: 25.0            # width-tolerance bandwidth
+  moment_arm:
+    sigma_c_frac_of_diag: 0.25  # sigma_c = this x object bbox diagonal
+  lambda:                       # [paper, Eq.8] sum to 1, weights are ours
+    geo: 0.35
+    ali: 0.35
+    wid: 0.15
+    com: 0.15
+
+collision_phase1_offline: "not computed here — deferred to per-frame
+  projection stage (Phase 2), since it is scene/frame dependent and there
+  is nothing scene-specific to evaluate against for an isolated CAD model."
+
+dedup:
+  center_dist_frac_of_diag: 0.03   # candidates closer than this (in pkm)
+  axis_cos_threshold: 0.95         # ...and with |u . u'| above this...
+  # ...are treated as duplicates across the 4 poses; keep highest Q.
