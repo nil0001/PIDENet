@@ -1,0 +1,29 @@
+# PIDENet annotation-algorithm reproduction — Python dependencies
+#
+# Tested on Windows 10/11 (Python 3.10-3.12) and Ubuntu 22.04 (Python 3.10-3.12).
+# Install with:   pip install -r requirements.txt
+# ------------------------------------------------------------------------------
+
+# --- numerical + geometry core ---
+numpy>=1.24
+scipy>=1.10
+trimesh>=4.0            # PLY loading, convex hull, ray casting, stable-pose engine
+PyYAML>=6.0             # hyperparams + output annotation files
+
+# --- image / contour processing ---
+opencv-python>=4.7      # binary mask contours (RETR_CCOMP), convexity defects
+scikit-image>=0.20
+shapely>=2.0            # ray-polygon intersection for outer-branch p_k2 search
+pyefd>=1.6              # Kuhl-Giardina elliptic Fourier descriptors
+
+# --- visualization ---
+matplotlib>=3.6         # static multi-view PNG previews, debug figures
+plotly>=5.14            # interactive HTML 3D viewer (candidates_3d_*.html)
+
+# --- optional but STRONGLY recommended (10-50x faster ray casting) ---
+# On Ubuntu:  pip install embreex  (usually installs from a prebuilt wheel).
+# On Windows: also installs from a wheel for Python 3.10-3.12 on 64-bit x86.
+# If it fails to install on your platform, the code will still work -- trimesh
+# will silently fall back to its pure-Python ray intersector, which is slower
+# but produces the same results.
+embreex>=2.17 ; platform_machine == 'x86_64' or platform_machine == 'AMD64'
